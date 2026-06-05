@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polish — Music Matching</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <h1 class="logo">🎵 Polish</h1>
+            <div class="header-right">
+                <span class="user-name" id="userGreeting"></span>
+                <button type="button" class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Auth Section -->
+    <div id="authSection" class="auth-section">
+        <div class="auth-card">
+            <h2>Welcome to Polish</h2>
+            <p>Connect with music lovers around the world</p>
+
+            <form onsubmit="return false">
+                <input type="text" id="username" placeholder="Username" autocomplete="off">
+                <input type="password" id="password" placeholder="Password (min 6)" autocomplete="off">
+                <div class="auth-buttons">
+                    <button type="button" class="btn btn-primary" onclick="signup()">Sign Up</button>
+                    <button type="button" class="btn btn-secondary" onclick="login()">Login</button>
+                </div>
+            </form>
+            <p id="authMessage" class="auth-message"></p>
+        </div>
+    </auth-section>
+
+    <!-- App Main Section -->
+    <div id="appSection" class="app-section hidden">
+
+        <!-- Main Content (Left side on desktop, top on mobile) -->
+        <div class="main-content">
+
+            <!-- Now Playing -->
+            <div class="now-playing-card">
+                <h2 id="nowPlaying" class="now-playing-title">Select a song to play</h2>
+                <p id="matchResult" class="match-result"></p>
+            </div>
+
+            <!-- Songs Grid -->
+            <div class="songs-section">
+                <h3>🎧 Your Playlist</h3>
+                <div class="songs-grid">
+                    <div class="song-card" onclick="playSong('song1.mp3', this)">
+                        <div class="song-icon">🎵</div>
+                        <p>Song 1</p>
+                    </div>
+                    <div class="song-card" onclick="playSong('song2.mp3', this)">
+                        <div class="song-icon">🎵</div>
+                        <p>Song 2</p>
+                    </div>
+                    <div class="song-card" onclick="playSong('song3.mp3', this)">
+                        <div class="song-icon">🎵</div>
+                        <p>Song 3</p>
+                    </div>
+                    <div class="song-card" onclick="playSong('song4.mp3', this)">
+                        <div class="song-icon">🎵</div>
+                        <p>Song 4</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player Controls -->
+            <div class="player-section">
+                <h3>🎶 Now Playing</h3>
+                <input type="range" id="progressBar" class="progress-bar" value="0" min="0" max="100">
+                <div class="controls">
+                    <button type="button" class="btn-control" onclick="previousSong()">⏮</button>
+                    <button type="button" class="btn-control btn-play" id="playPauseBtn" onclick="togglePlayPause()">▶ Play</button>
+                    <button type="button" class="btn-control" onclick="nextSong()">⏭</button>
+                </div>
+            </div>
+
+            <!-- Listeners Popup -->
+            <div class="listeners-popup hidden" id="listenersList"></div>
+
+        </div>
+
+        <!-- Chat Section (Right side on desktop, modal on mobile) -->
+        <div class="chat-section hidden" id="chatSection">
+            <div class="chat-header">
+                <h3>💬 Chat with <span id="chatWith"></span></h3>
+                <button type="button" class="btn-close" onclick="closeChat()">✕</button>
+            </div>
+            <div id="chatBox" class="chat-box"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off">
+                <button type="button" class="btn-send" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
