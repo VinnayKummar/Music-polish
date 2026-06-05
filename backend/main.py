@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Header
+from fastapi import FastAPI, Header, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from database import User, Message, Session
 from auth import hash_password, verify_password
 from models import LogRequest, SignupRequest, LoginRequest, ChatRequest
 from datetime import datetime, timedelta
 import jwt
+import json
 
 app = FastAPI()
 
@@ -18,6 +19,13 @@ app.add_middleware(
 
 SECRET_KEY = "polish-secret-key-change-in-production"
 ALGORITHM  = "HS256"
+
+# ─────────────────────────────────────────────────────────────────
+# WebSocket: Store active connections (socket → username mapping)
+# When someone connects to /ws/chat, we add them here
+# When they disconnect, we remove them
+# ─────────────────────────────────────────────────────────────────
+active_connections = {}
 
 
 def create_jwt_token(username: str) -> str:
@@ -110,10 +118,13 @@ async def log_data(request: LogRequest, token: str = Header(None)):
             session.add(user)
         session.commit()
 
-        # Find ALL users listening to the same song
+        # Only show users active in the last 30 seconds
+        # The app polls every 3 seconds, so 30s = 10 missed polls = truly offline
+        thirty_seconds_ago = datetime.utcnow() - timedelta(seconds=30)
         listeners = session.query(User).filter(
-            User.song == request.song,
-            User.username != username
+            User.song        == request.song,
+            User.username    != username,
+            User.last_active >= thirty_seconds_ago   # ← Currently active only
         ).all()
 
         if listeners:
@@ -214,3 +225,86 @@ async def get_active_users(token: str = Header(None)):
         }
     finally:
         session.close()
+
+
+# ─────────────────────────────────────────────────────────────────
+# WebSocket: Real-time chat
+# ─────────────────────────────────────────────────────────────────
+# How it works:
+# 1. Client connects to /ws/chat
+# 2. Client sends messages with type: "message", "typing", etc.
+# 3. Server broadcasts to ALL connected clients
+# 4. Each client receives messages in real-time
+# ─────────────────────────────────────────────────────────────────
+
+@app.websocket("/ws/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time chat.
+
+    Accepts messages in this format:
+    {
+        "type": "message" | "typing" | "typing_stopped",
+        "text": "hello world",
+        "sender": "alice"
+    }
+
+    Broadcasts messages to all connected clients.
+    """
+
+    # Accept the WebSocket connection from the client
+    # This is like saying "yes, I'll connect with you"
+    await websocket.accept()
+
+    # Add this connection to our active connections dictionary
+    # Key: the WebSocket object itself
+    # Value: the username (we'll extract this from the first message)
+    connection_id = id(websocket)
+    active_connections[connection_id] = {
+        "websocket": websocket,
+        "username": None
+    }
+
+    print(f"✓ Client connected. Total: {len(active_connections)}")
+
+    try:
+        # Keep listening for messages from this client
+        # This loop runs forever until the client disconnects
+        while True:
+            # Wait for a message from the client
+            # This is a blocking call — we pause here until data arrives
+            data = await websocket.receive_text()
+
+            # Parse the JSON message
+            message = json.loads(data)
+            print(f"Received: {message}")
+
+            # Extract sender name for logging
+            if message.get("sender"):
+                active_connections[connection_id]["username"] = message.get("sender")
+
+            # Broadcast this message to ALL connected clients
+            # This lets everyone in the chat see what this person sent
+            for conn_id, conn_info in active_connections.items():
+                try:
+                    # Send the message to this client
+                    await conn_info["websocket"].send_text(json.dumps(message))
+                except Exception as e:
+                    # If sending fails, that client is probably disconnected
+                    print(f"Failed to send to {conn_id}: {e}")
+
+    except WebSocketDisconnect:
+        # Client closed the connection (closed browser tab, navigation, etc.)
+        print(f"✗ Client disconnected")
+        # Remove them from active connections
+        active_connections.pop(connection_id, None)
+        print(f"  Total now: {len(active_connections)}")
+
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        active_connections.pop(connection_id, None)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)

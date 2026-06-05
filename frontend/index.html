@@ -8,101 +8,133 @@
 </head>
 <body>
 
-<div class="app-container">
-
-    <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <h1 class="logo">🎵 Polish</h1>
-            <div class="header-right">
-                <span class="user-name" id="userGreeting"></span>
-                <button type="button" class="btn-logout" onclick="logout()">Logout</button>
+<div id="authSection" class="auth-screen">
+    <div class="auth-glow"></div>
+    <div class="auth-card">
+        <div class="auth-logo"><span class="logo-icon">♫</span></div>
+        <h1 class="auth-title">Polish</h1>
+        <p class="auth-subtitle">Find your music twin</p>
+        <form onsubmit="return false" class="auth-form">
+            <div class="input-group">
+                <input type="text" id="username" placeholder="Username" autocomplete="off">
             </div>
+            <div class="input-group">
+                <input type="password" id="password" placeholder="Password" autocomplete="off">
+            </div>
+            <div class="auth-actions">
+                <button type="button" class="btn-ghost" onclick="signup()">Create account</button>
+                <button type="button" class="btn-solid" onclick="login()">Sign in →</button>
+            </div>
+        </form>
+        <p id="authMessage" class="auth-msg"></p>
+    </div>
+</div>
+
+<div id="appSection" class="app hidden">
+
+    <header class="top-nav">
+        <span class="nav-logo">♫ Polish</span>
+        <div class="nav-right">
+            <span id="userGreeting" class="nav-user"></span>
+            <button type="button" class="btn-logout" onclick="logout()">Leave</button>
         </div>
     </header>
 
-    <!-- Auth Section -->
-    <div id="authSection" class="auth-section">
-        <div class="auth-card">
-            <h2>Welcome to Polish</h2>
-            <p>Connect with music lovers around the world</p>
+    <div class="content-wrap">
 
-            <form onsubmit="return false">
-                <input type="text" id="username" placeholder="Username" autocomplete="off">
-                <input type="password" id="password" placeholder="Password (min 6)" autocomplete="off">
-                <div class="auth-buttons">
-                    <button type="button" class="btn btn-primary" onclick="signup()">Sign Up</button>
-                    <button type="button" class="btn btn-secondary" onclick="login()">Login</button>
+        <div class="left-col">
+
+            <div class="now-playing-hero">
+                <div class="vinyl-wrap">
+                    <div class="vinyl" id="vinylDisc">
+                        <div class="vinyl-groove g1"></div>
+                        <div class="vinyl-groove g2"></div>
+                        <div class="vinyl-groove g3"></div>
+                        <div class="vinyl-dot"></div>
+                    </div>
+                    <div class="vinyl-glow"></div>
                 </div>
-            </form>
-            <p id="authMessage" class="auth-message"></p>
+                <div class="np-meta">
+                    <span class="np-label">NOW PLAYING</span>
+                    <h2 id="nowPlaying" class="np-title">Pick a track</h2>
+                    <p id="matchResult" class="np-match"></p>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <input type="range" id="progressBar" class="seek-bar" value="0" min="0" max="100">
+                <div class="ctrl-row">
+                    <button type="button" class="ctrl-btn" onclick="previousSong()">⏮</button>
+                    <button type="button" class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlayPause()">▶</button>
+                    <button type="button" class="ctrl-btn" onclick="nextSong()">⏭</button>
+                </div>
+            </div>
+
         </div>
-    </auth-section>
 
-    <!-- App Main Section -->
-    <div id="appSection" class="app-section hidden">
+        <div class="right-col">
 
-        <!-- Main Content (Left side on desktop, top on mobile) -->
-        <div class="main-content">
+            <div class="library">
+                <h3 class="section-title">Your Library</h3>
+                <div class="track-list">
 
-            <!-- Now Playing -->
-            <div class="now-playing-card">
-                <h2 id="nowPlaying" class="now-playing-title">Select a song to play</h2>
-                <p id="matchResult" class="match-result"></p>
-            </div>
+                    <div class="track-card track-1" onclick="playSong('song1.mp3', this)">
+                        <div class="track-art">🔥</div>
+                        <div class="track-meta">
+                            <span class="track-name">Song 1</span>
+                            <span class="track-artist">Unknown Artist</span>
+                        </div>
+                        <div class="track-action">▶</div>
+                    </div>
 
-            <!-- Songs Grid -->
-            <div class="songs-section">
-                <h3>🎧 Your Playlist</h3>
-                <div class="songs-grid">
-                    <div class="song-card" onclick="playSong('song1.mp3', this)">
-                        <div class="song-icon">🎵</div>
-                        <p>Song 1</p>
+                    <div class="track-card track-2" onclick="playSong('song2.mp3', this)">
+                        <div class="track-art">🌌</div>
+                        <div class="track-meta">
+                            <span class="track-name">Song 2</span>
+                            <span class="track-artist">Unknown Artist</span>
+                        </div>
+                        <div class="track-action">▶</div>
                     </div>
-                    <div class="song-card" onclick="playSong('song2.mp3', this)">
-                        <div class="song-icon">🎵</div>
-                        <p>Song 2</p>
+
+                    <div class="track-card track-3" onclick="playSong('song3.mp3', this)">
+                        <div class="track-art">🌊</div>
+                        <div class="track-meta">
+                            <span class="track-name">Song 3</span>
+                            <span class="track-artist">Unknown Artist</span>
+                        </div>
+                        <div class="track-action">▶</div>
                     </div>
-                    <div class="song-card" onclick="playSong('song3.mp3', this)">
-                        <div class="song-icon">🎵</div>
-                        <p>Song 3</p>
+
+                    <div class="track-card track-4" onclick="playSong('song4.mp3', this)">
+                        <div class="track-art">⚡</div>
+                        <div class="track-meta">
+                            <span class="track-name">Song 4</span>
+                            <span class="track-artist">Unknown Artist</span>
+                        </div>
+                        <div class="track-action">▶</div>
                     </div>
-                    <div class="song-card" onclick="playSong('song4.mp3', this)">
-                        <div class="song-icon">🎵</div>
-                        <p>Song 4</p>
-                    </div>
+
                 </div>
             </div>
 
-            <!-- Player Controls -->
-            <div class="player-section">
-                <h3>🎶 Now Playing</h3>
-                <input type="range" id="progressBar" class="progress-bar" value="0" min="0" max="100">
-                <div class="controls">
-                    <button type="button" class="btn-control" onclick="previousSong()">⏮</button>
-                    <button type="button" class="btn-control btn-play" id="playPauseBtn" onclick="togglePlayPause()">▶ Play</button>
-                    <button type="button" class="btn-control" onclick="nextSong()">⏭</button>
-                </div>
-            </div>
-
-            <!-- Listeners Popup -->
             <div class="listeners-popup hidden" id="listenersList"></div>
 
         </div>
+    </div>
 
-        <!-- Chat Section (Right side on desktop, modal on mobile) -->
-        <div class="chat-section hidden" id="chatSection">
-            <div class="chat-header">
-                <h3>💬 Chat with <span id="chatWith"></span></h3>
-                <button type="button" class="btn-close" onclick="closeChat()">✕</button>
+    <div class="chat-panel hidden" id="chatSection">
+        <div class="chat-top">
+            <div class="chat-with-info">
+                <div class="chat-avatar">👤</div>
+                <h3 id="chatWith" class="chat-name"></h3>
             </div>
-            <div id="chatBox" class="chat-box"></div>
-            <div class="chat-input-row">
-                <input type="text" id="chatInput" placeholder="Type a message..." autocomplete="off">
-                <button type="button" class="btn-send" onclick="sendMessage()">Send</button>
-            </div>
+            <button type="button" class="chat-close" onclick="closeChat()">✕</button>
         </div>
-
+        <div id="chatBox" class="chat-messages"></div>
+        <div class="chat-bottom">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Say something..." autocomplete="off">
+            <button type="button" class="chat-send" onclick="sendMessage()">↑</button>
+        </div>
     </div>
 
 </div>

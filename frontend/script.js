@@ -1,16 +1,15 @@
-// ─── State ───────────────────────────────────────────────────────────────────
 let audio            = new Audio();
 let matchInterval;
 let chatInterval;
 let currentSongIndex = 0;
 let matchedUser      = null;
 let chatShown        = false;
+let chatWs           = null;
+let typingTimeout    = null;
 
 const allSongs = ["song1.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
 const API      = "http://127.0.0.1:8000";
 
-
-// ─── On Page Load ────────────────────────────────────────────────────────────
 
 window.onload = () => {
     const username = localStorage.getItem("username");
@@ -25,18 +24,14 @@ async function signup() {
     const password = document.getElementById("password").value;
     const msg      = document.getElementById("authMessage");
 
-    if (!username || !password) {
-        msg.textContent = "Please fill in both fields.";
-        return;
-    }
-
+    if (!username || !password) { msg.textContent = "Please fill in both fields."; return; }
     msg.textContent = "Creating account...";
 
     try {
         const res  = await fetch(`${API}/signup`, {
-            method:  "POST",
+            method: "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password })
         });
         const data = await res.json();
         msg.textContent = data.error || "Account created! Now login.";
@@ -50,18 +45,14 @@ async function login() {
     const password = document.getElementById("password").value;
     const msg      = document.getElementById("authMessage");
 
-    if (!username || !password) {
-        msg.textContent = "Please fill in both fields.";
-        return;
-    }
-
+    if (!username || !password) { msg.textContent = "Please fill in both fields."; return; }
     msg.textContent = "Logging in...";
 
     try {
         const res  = await fetch(`${API}/login`, {
-            method:  "POST",
+            method: "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password })
         });
         const data = await res.json();
 
@@ -83,6 +74,7 @@ function logout() {
     audio.pause();
     clearInterval(matchInterval);
     clearInterval(chatInterval);
+    closeChatWs();
     matchedUser = null;
     document.getElementById("authSection").classList.remove("hidden");
     document.getElementById("appSection").classList.add("hidden");
@@ -96,50 +88,49 @@ function showApp(username) {
 }
 
 
-// ─── Location Helpers ─────────────────────────────────────────────────────────
+// ─── Location ─────────────────────────────────────────────────────────────────
 
 async function getCityName(latitude, longitude) {
+    if (!latitude && !longitude) return "📍 Location unknown";
+    if (latitude === 0 && longitude === 0) return "📍 Location unknown";
+
     try {
         const res  = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
         );
         const data = await res.json();
-        const city    = data.address.city || data.address.town || data.address.village || "";
-        const country = data.address.country || "";
-        return `${city}, ${country}`;
+        const city    = data.address.city || data.address.town || data.address.village || data.address.county || "";
+        const country = data.address.country_code?.toUpperCase() || "";
+        if (!city && !country) return "📍 Location unknown";
+        return `📍 ${city}${city && country ? ", " : ""}${country}`;
     } catch {
-        return "a nearby location";
+        return "📍 Location unknown";
     }
 }
 
 
-// ─── Match ───────────────────────────────────────────────────────────────────
+// ─── Match ────────────────────────────────────────────────────────────────────
 
 function checkMatch(songFile, latitude, longitude) {
     const token    = localStorage.getItem("token");
     const username = localStorage.getItem("username");
-
     if (!token || !username) return;
 
     fetch(`${API}/log`, {
-        method:  "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "token": token
-        },
+        method: "POST",
+        headers: { "Content-Type": "application/json", "token": token },
         body: JSON.stringify({ username, song: songFile, latitude, longitude })
     })
     .then(res => res.json())
     .then(async data => {
         const matchEl = document.getElementById("matchResult");
-
         if (data.match === true) {
-            matchEl.textContent   = `${data.listeners.length} people listening to ${songFile}!`;
-            matchEl.style.color   = "#1db954";
+            matchEl.textContent = `🎵 ${data.listeners.length} people nearby listening to this!`;
+            matchEl.style.color = "#fff";
             showListenersList(data.listeners);
         } else {
-            matchEl.textContent = "No match found yet. Keep listening!";
-            matchEl.style.color = "#aaa";
+            matchEl.textContent = "No match yet — keep listening!";
+            matchEl.style.color = "rgba(255,255,255,0.7)";
         }
     })
     .catch(() => {
@@ -158,68 +149,58 @@ function startPolling(songFile) {
 }
 
 
-// ─── Player ──────────────────────────────────────────────────────────────────
+// ─── Player ───────────────────────────────────────────────────────────────────
 
 function playSong(songFile, element) {
     const username = localStorage.getItem("username");
+    if (!username) { alert("Please login first."); return; }
 
-    if (!username) {
-        alert("Please login first.");
-        return;
-    }
-
-    // Hide listeners popup and chat when switching songs
     document.getElementById("listenersList").classList.add("hidden");
     document.getElementById("chatSection").classList.add("hidden");
     clearInterval(chatInterval);
+    closeChatWs();
     matchedUser = null;
 
-    // Play song immediately — don't wait for GPS
     currentSongIndex = allSongs.indexOf(songFile);
     audio.src        = "music/" + songFile;
     audio.play();
 
-    document.getElementById("nowPlaying").textContent   = "Now playing: " + songFile;
-    document.getElementById("playPauseBtn").textContent = "⏸ Pause";
+    document.getElementById("nowPlaying").textContent   = songFile.replace(".mp3", "");
+    document.getElementById("playPauseBtn").textContent = "⏸";
+    document.getElementById("vinylDisc").classList.add("playing");
 
-    document.querySelectorAll("#songList li").forEach(li => li.classList.remove("active"));
+    document.querySelectorAll(".track-card").forEach(c => c.classList.remove("active"));
     element.classList.add("active");
 
-    // Start matching immediately with default coords
     checkMatch(songFile, 0, 0);
     startPolling(songFile);
 
-    // Update with real GPS in background if available
     navigator.geolocation.getCurrentPosition(pos => {
-        const { latitude, longitude } = pos.coords;
-        checkMatch(songFile, latitude, longitude);
-    }, () => {
-        // GPS not available — matching still works by song name
-    });
+        checkMatch(songFile, pos.coords.latitude, pos.coords.longitude);
+    }, () => {});
 }
 
 function nextSong() {
     currentSongIndex = (currentSongIndex + 1) % allSongs.length;
-    const el = document.querySelectorAll("#songList li")[currentSongIndex];
-    playSong(allSongs[currentSongIndex], el);
+    playSong(allSongs[currentSongIndex], document.querySelectorAll(".track-card")[currentSongIndex]);
 }
 
 function previousSong() {
     currentSongIndex = (currentSongIndex - 1 + allSongs.length) % allSongs.length;
-    const el = document.querySelectorAll("#songList li")[currentSongIndex];
-    playSong(allSongs[currentSongIndex], el);
+    playSong(allSongs[currentSongIndex], document.querySelectorAll(".track-card")[currentSongIndex]);
 }
 
 function togglePlayPause() {
     if (!audio.src || audio.src === window.location.href) {
-        const el = document.querySelectorAll("#songList li")[currentSongIndex];
-        playSong(allSongs[currentSongIndex], el);
+        playSong(allSongs[currentSongIndex], document.querySelectorAll(".track-card")[currentSongIndex]);
     } else if (audio.paused) {
         audio.play();
-        document.getElementById("playPauseBtn").textContent = "⏸ Pause";
+        document.getElementById("playPauseBtn").textContent = "⏸";
+        document.getElementById("vinylDisc").classList.add("playing");
     } else {
         audio.pause();
-        document.getElementById("playPauseBtn").textContent = "▶ Play";
+        document.getElementById("playPauseBtn").textContent = "▶";
+        document.getElementById("vinylDisc").classList.remove("playing");
     }
 }
 
@@ -236,46 +217,104 @@ document.getElementById("progressBar").addEventListener("input", function () {
 });
 
 
-// ─── Listeners List ───────────────────────────────────────────────────────────
+// ─── Listeners ────────────────────────────────────────────────────────────────
 
 async function showListenersList(listeners) {
     const currentUser = localStorage.getItem("username");
-    const listEl = document.getElementById("listenersList");
+    const listEl      = document.getElementById("listenersList");
+    const others      = listeners.filter(l => l.username !== currentUser);
 
-    if (!listEl) {
-        // Create listeners list popup if it doesn't exist
-        const popup = document.createElement("div");
-        popup.id = "listenersList";
-        popup.className = "listeners-popup";
-        document.getElementById("appSection").appendChild(popup);
-    }
+    if (others.length === 0) { listEl.classList.add("hidden"); return; }
 
-    const listEl2 = document.getElementById("listenersList");
-    listEl2.innerHTML = "<h3>People listening to this song:</h3>";
-
-    // Filter out current user and show only others
-    const others = listeners.filter(l => l.username !== currentUser);
-
-    if (others.length === 0) {
-        listEl2.innerHTML += "<p>No one else listening right now.</p>";
-        listEl2.classList.remove("hidden");
-        return;
-    }
+    listEl.innerHTML = `<p class="listeners-title">🎧 LISTENING NEARBY</p>`;
 
     for (const listener of others) {
-        const city = await getCityName(listener.latitude, listener.longitude);
-        const div = document.createElement("div");
-        div.className = "listener-item";
-        div.innerHTML = `
-            <span>${listener.username}</span>
-            <span>${city}</span>
-            <button type="button" onclick="startChat('${listener.username}')">Chat</button>
+        const city     = await getCityName(listener.latitude, listener.longitude);
+        const initials = listener.username.slice(0, 2).toUpperCase();
+        const div      = document.createElement("div");
+        div.className  = "listener-item";
+        div.innerHTML  = `
+            <div class="listener-avatar">${initials}</div>
+            <div class="listener-info">
+                <span class="listener-name">${listener.username}</span>
+                <span class="listener-loc">${city}</span>
+            </div>
+            <button type="button" onclick="startChat('${listener.username}')">💬 Chat</button>
         `;
-        listEl2.appendChild(div);
+        listEl.appendChild(div);
     }
 
-    listEl2.classList.remove("hidden");
+    listEl.classList.remove("hidden");
 }
+
+
+// ─── WebSocket ────────────────────────────────────────────────────────────────
+
+function openChatWs(otherUser) {
+    closeChatWs();
+    const me = localStorage.getItem("username");
+    chatWs   = new WebSocket(`ws://127.0.0.1:8000/ws/chat`);
+
+    chatWs.onopen = () => {
+        chatWs.send(JSON.stringify({ type: "join", sender: me, receiver: otherUser }));
+    };
+
+    chatWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.sender !== otherUser) return;
+
+        if (data.type === "typing")         showTypingIndicator(data.text || "");
+        if (data.type === "stopped_typing") hideTypingIndicator();
+        if (data.type === "message")        { hideTypingIndicator(); loadMessages(otherUser); }
+    };
+
+    chatWs.onclose = () => {};
+    chatWs.onerror = (e) => console.error("WebSocket error", e);
+}
+
+function closeChatWs() {
+    if (chatWs && chatWs.readyState === WebSocket.OPEN) chatWs.close();
+    chatWs = null;
+}
+
+
+// ─── Typing Indicator ─────────────────────────────────────────────────────────
+
+function showTypingIndicator(liveText) {
+    const chatBox = document.getElementById("chatBox");
+    let typingEl  = document.getElementById("typingIndicator");
+
+    if (!typingEl) {
+        typingEl    = document.createElement("div");
+        typingEl.id = "typingIndicator";
+        typingEl.classList.add("message", "theirs", "typing-message");
+        typingEl.innerHTML = `
+            <span class="msg-text typing-bubble">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-live-text" id="typingLiveText"></span>
+            </span>
+        `;
+        chatBox.appendChild(typingEl);
+    }
+
+    const liveTextEl = document.getElementById("typingLiveText");
+    if (liveTextEl && liveText) {
+        liveTextEl.textContent   = liveText;
+        liveTextEl.style.display = "inline";
+    } else if (liveTextEl) {
+        liveTextEl.style.display = "none";
+    }
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function hideTypingIndicator() {
+    const typingEl = document.getElementById("typingIndicator");
+    if (typingEl) typingEl.remove();
+}
+
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
@@ -287,13 +326,16 @@ function startChat(otherUser) {
     loadMessages(otherUser);
     clearInterval(chatInterval);
     chatInterval = setInterval(() => loadMessages(otherUser), 3000);
+    openChatWs(otherUser);
 }
 
 function closeChat() {
     document.getElementById("chatSection").classList.add("hidden");
     clearInterval(chatInterval);
+    closeChatWs();
+    hideTypingIndicator();
     matchedUser = null;
-    chatShown = false;
+    chatShown   = false;
 }
 
 async function loadMessages(otherUser) {
@@ -304,21 +346,25 @@ async function loadMessages(otherUser) {
             headers: { "token": token }
         });
         const data = await res.json();
+        const chatBox  = document.getElementById("chatBox");
+        const wasAtBottom = chatBox.scrollHeight - chatBox.clientHeight <= chatBox.scrollTop + 50;
+        const prevCount   = chatBox.querySelectorAll(".message:not(.typing-message)").length;
 
-        const chatBox = document.getElementById("chatBox");
-        chatBox.innerHTML = "";
+        chatBox.querySelectorAll(".message:not(.typing-message)").forEach(el => el.remove());
 
-        data.messages.forEach(m => {
-            const div       = document.createElement("div");
+        data.messages.forEach((m, index) => {
+            const div = document.createElement("div");
             div.classList.add("message", m.mine ? "mine" : "theirs");
-            div.innerHTML   = `
-                <span class="msg-text">${m.content}</span>
+            if (index >= prevCount) div.classList.add("message-new");
+            div.innerHTML = `
+                <span class="msg-text">${escapeHtml(m.content)}</span>
                 <span class="msg-time">${m.timestamp}</span>
             `;
-            chatBox.appendChild(div);
+            const typingEl = document.getElementById("typingIndicator");
+            typingEl ? chatBox.insertBefore(div, typingEl) : chatBox.appendChild(div);
         });
 
-        chatBox.scrollTop = chatBox.scrollHeight;
+        if (wasAtBottom) chatBox.scrollTop = chatBox.scrollHeight;
     } catch {
         console.error("Failed to load messages.");
     }
@@ -326,28 +372,54 @@ async function loadMessages(otherUser) {
 
 async function sendMessage() {
     const token   = localStorage.getItem("token");
-    const content = document.getElementById("chatInput").value.trim();
+    const input   = document.getElementById("chatInput");
+    const content = input.value.trim();
+    const me      = localStorage.getItem("username");
 
     if (!content || !matchedUser) return;
+    input.value = "";
+
+    if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+        chatWs.send(JSON.stringify({ type: "message", sender: me, receiver: matchedUser, text: content }));
+    }
 
     try {
         await fetch(`${API}/chat/send`, {
-            method:  "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "token": token
-            },
+            method: "POST",
+            headers: { "Content-Type": "application/json", "token": token },
             body: JSON.stringify({ receiver: matchedUser, content })
         });
-
-        document.getElementById("chatInput").value = "";
         loadMessages(matchedUser);
     } catch {
         console.error("Failed to send message.");
     }
 }
 
-// Send on Enter key
+function handleChatTyping(e) {
+    const me   = localStorage.getItem("username");
+    const text = e.target.value;
+    if (!chatWs || chatWs.readyState !== WebSocket.OPEN) return;
+
+    if (text.length > 0) {
+        chatWs.send(JSON.stringify({ type: "typing", sender: me, receiver: matchedUser, text }));
+    }
+
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+        if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+            chatWs.send(JSON.stringify({ type: "stopped_typing", sender: me, receiver: matchedUser }));
+        }
+    }, 1500);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
+
 document.getElementById("chatInput").addEventListener("keypress", function (e) {
     if (e.key === "Enter") sendMessage();
 });
+
+document.getElementById("chatInput").addEventListener("input", handleChatTyping);
