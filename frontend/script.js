@@ -113,21 +113,27 @@ function openNotifyWs(username) {
 // ─── Location ─────────────────────────────────────────────────────────────────
 
 async function getCityName(latitude, longitude) {
-    if (!latitude && !longitude) return "📍 Location unknown";
-    if (latitude === 0 && longitude === 0) return "📍 Location unknown";
+    if (latitude && longitude && latitude !== 0 && longitude !== 0) {
+        try {
+            const res  = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+            );
+            const data = await res.json();
+            const city    = data.address.city || data.address.town || data.address.village || data.address.county || "";
+            const country = data.address.country_code?.toUpperCase() || "";
+            if (city || country) return `📍 ${city}${city && country ? ", " : ""}${country}`;
+        } catch {}
+    }
 
     try {
-        const res  = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
-        );
+        const res  = await fetch("https://ipapi.co/json/");
         const data = await res.json();
-        const city    = data.address.city || data.address.town || data.address.village || data.address.county || "";
-        const country = data.address.country_code?.toUpperCase() || "";
-        if (!city && !country) return "📍 Location unknown";
-        return `📍 ${city}${city && country ? ", " : ""}${country}`;
-    } catch {
-        return "📍 Location unknown";
-    }
+        const city    = data.city || "";
+        const country = data.country_code || "";
+        if (city || country) return `📍 ${city}${city && country ? ", " : ""}${country}`;
+    } catch {}
+
+    return "📍 Location unknown";
 }
 
 
