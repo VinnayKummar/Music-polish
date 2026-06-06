@@ -112,6 +112,22 @@ function openNotifyWs(username) {
 
 // ─── Location ─────────────────────────────────────────────────────────────────
 
+let _cachedLocation = null;
+
+async function getMyLocation() {
+    if (_cachedLocation) return _cachedLocation;
+    try {
+        const res  = await fetch(`${API}/location`);
+        const data = await res.json();
+        const city    = data.city || "";
+        const country = data.country || "";
+        _cachedLocation = { city, country };
+    } catch {
+        _cachedLocation = { city: "", country: "" };
+    }
+    return _cachedLocation;
+}
+
 async function getCityName(latitude, longitude) {
     if (latitude && longitude && latitude !== 0 && longitude !== 0) {
         try {
@@ -126,10 +142,10 @@ async function getCityName(latitude, longitude) {
     }
 
     try {
-        const res  = await fetch("https://ipapi.co/json/");
+        const res  = await fetch(`${API}/location`);
         const data = await res.json();
         const city    = data.city || "";
-        const country = data.country_code || "";
+        const country = data.country || "";
         if (city || country) return `📍 ${city}${city && country ? ", " : ""}${country}`;
     } catch {}
 

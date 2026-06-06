@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Header, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Header, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import httpx
 from database import User, Message, Session
 from auth import hash_password, verify_password
 from models import LogRequest, SignupRequest, LoginRequest, ChatRequest
@@ -44,6 +45,24 @@ def verify_jwt_token(token: str) -> str:
         return payload.get("username")
     except jwt.PyJWTError:
         return None
+
+
+# ─── Location via IP ─────────────────────────────────────
+
+@app.get("/location")
+async def get_location(request: Request):
+    ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.client.host
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            res  = await client.get(f"https://ipwho.is/{ip}")
+            data = res.json()
+            if data.get("success"):
+                city    = data.get("city", "")
+                country = data.get("country_code", "")
+                return {"city": city, "country": country}
+    except Exception:
+        pass
+    return {"city": "", "country": ""}
 
 
 # ─── Signup ──────────────────────────────────────────────
