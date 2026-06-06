@@ -106,6 +106,7 @@ function openNotifyWs(username) {
         }
     };
     notifyWs.onclose = () => setTimeout(() => openNotifyWs(username), 3000);
+    notifyWs.onerror = () => { notifyWs.close(); };
 }
 
 
@@ -166,7 +167,7 @@ function startPolling(songFile) {
             pos => checkMatch(songFile, pos.coords.latitude, pos.coords.longitude),
             ()  => checkMatch(songFile, 0, 0)
         );
-    }, 3000);
+    }, 1000);
 }
 
 
