@@ -100,9 +100,9 @@ function openNotifyWs(username) {
         const data = JSON.parse(event.data);
         if (data.type === "match_found") {
             const matchEl = document.getElementById("matchResult");
-            matchEl.textContent = `🎵 ${data.listeners.length} people nearby listening to this!`;
+            matchEl.textContent = "🎵 Finding where they are...";
             matchEl.style.color = "#fff";
-            showListenersList(data.listeners);
+            showListenersList(data.listeners, matchEl);
         }
     };
     notifyWs.onclose = () => setTimeout(() => openNotifyWs(username), 3000);
@@ -147,9 +147,9 @@ function checkMatch(songFile, latitude, longitude) {
     .then(async data => {
         const matchEl = document.getElementById("matchResult");
         if (data.match === true) {
-            matchEl.textContent = `🎵 ${data.listeners.length} people nearby listening to this!`;
+            matchEl.textContent = "🎵 Finding where they are...";
             matchEl.style.color = "#fff";
-            showListenersList(data.listeners);
+            showListenersList(data.listeners, matchEl);
         } else {
             matchEl.textContent = "No match yet — keep listening!";
             matchEl.style.color = "rgba(255,255,255,0.7)";
@@ -241,7 +241,7 @@ document.getElementById("progressBar").addEventListener("input", function () {
 
 // ─── Listeners ────────────────────────────────────────────────────────────────
 
-async function showListenersList(listeners) {
+async function showListenersList(listeners, matchEl) {
     const currentUser = localStorage.getItem("username");
     const listEl      = document.getElementById("listenersList");
     const others      = listeners.filter(l => l.username !== currentUser);
@@ -250,8 +250,11 @@ async function showListenersList(listeners) {
 
     listEl.innerHTML = `<p class="listeners-title">🎧 LISTENING NEARBY</p>`;
 
+    const cityResults = [];
+
     for (const listener of others) {
         const city     = await getCityName(listener.latitude, listener.longitude);
+        cityResults.push({ listener, city });
         const initials = listener.username.slice(0, 2).toUpperCase();
         const div      = document.createElement("div");
         div.className  = "listener-item";
@@ -267,6 +270,16 @@ async function showListenersList(listeners) {
     }
 
     listEl.classList.remove("hidden");
+
+    if (matchEl) {
+        if (cityResults.length === 1) {
+            const { listener, city } = cityResults[0];
+            const loc = city.replace("📍 ", "");
+            matchEl.textContent = `🎵 ${listener.username}${loc ? " from " + loc : ""} is listening too!`;
+        } else {
+            matchEl.textContent = `🎵 ${cityResults.length} people are listening to this!`;
+        }
+    }
 }
 
 
