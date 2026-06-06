@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Header, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from database import User, Message, Session
 from auth import hash_password, verify_password
 from models import LogRequest, SignupRequest, LoginRequest, ChatRequest
@@ -304,6 +305,10 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"WebSocket error: {e}")
         active_connections.pop(connection_id, None)
 
+
+import os
+if os.path.exists("/app/frontend"):
+    app.mount("/", StaticFiles(directory="/app/frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn

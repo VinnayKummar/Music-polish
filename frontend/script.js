@@ -8,7 +8,8 @@ let chatWs           = null;
 let typingTimeout    = null;
 
 const allSongs = ["song1.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
-const API      = "http://127.0.0.1:8000";
+const API      = "";
+const WS_HOST  = (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
 
 
 window.onload = () => {
@@ -253,7 +254,7 @@ async function showListenersList(listeners) {
 function openChatWs(otherUser) {
     closeChatWs();
     const me = localStorage.getItem("username");
-    chatWs   = new WebSocket(`ws://127.0.0.1:8000/ws/chat`);
+    chatWs   = new WebSocket(`${WS_HOST}/ws/chat`);
 
     chatWs.onopen = () => {
         chatWs.send(JSON.stringify({ type: "join", sender: me, receiver: otherUser }));

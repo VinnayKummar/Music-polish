@@ -1,4 +1,5 @@
 fastapi
+aiofiles
 uvicorn
 sqlalchemy
 pydantic
