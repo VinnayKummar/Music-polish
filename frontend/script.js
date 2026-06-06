@@ -5,6 +5,7 @@ let currentSongIndex = 0;
 let matchedUser      = null;
 let chatShown        = false;
 let chatWs           = null;
+let notifyWs         = null;
 let typingTimeout    = null;
 
 const allSongs = ["song1.mp3", "song2.mp3", "song3.mp3", "song4.mp3"];
@@ -86,6 +87,25 @@ function showApp(username) {
     document.getElementById("authSection").classList.add("hidden");
     document.getElementById("appSection").classList.remove("hidden");
     document.getElementById("userGreeting").textContent = "👋 Hello, " + username;
+    openNotifyWs(username);
+}
+
+function openNotifyWs(username) {
+    if (notifyWs) notifyWs.close();
+    notifyWs = new WebSocket(`${WS_HOST}/ws/notify`);
+    notifyWs.onopen = () => {
+        notifyWs.send(JSON.stringify({ type: "register", username }));
+    };
+    notifyWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "match_found") {
+            const matchEl = document.getElementById("matchResult");
+            matchEl.textContent = `🎵 ${data.listeners.length} people nearby listening to this!`;
+            matchEl.style.color = "#fff";
+            showListenersList(data.listeners);
+        }
+    };
+    notifyWs.onclose = () => setTimeout(() => openNotifyWs(username), 3000);
 }
 
 

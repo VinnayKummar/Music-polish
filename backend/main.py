@@ -27,6 +27,7 @@ ALGORITHM  = "HS256"
 # When they disconnect, we remove them
 # ─────────────────────────────────────────────────────────────────
 active_connections = {}
+notify_connections = {}  # username -> websocket for real-time match notifications
 
 
 def create_jwt_token(username: str) -> str:
@@ -129,17 +130,33 @@ async def log_data(request: LogRequest, token: str = Header(None)):
         ).all()
 
         if listeners:
-            return {
-                "match": True,
-                "listeners": [
-                    {
-                        "username": listener.username,
-                        "latitude": listener.latitude,
-                        "longitude": listener.longitude
-                    }
-                    for listener in listeners
-                ]
+            listener_data = [
+                {
+                    "username": listener.username,
+                    "latitude": listener.latitude,
+                    "longitude": listener.longitude
+                }
+                for listener in listeners
+            ]
+
+            # Push match notification to matched users so they don't have to wait for their next poll
+            current_user_data = {
+                "username": username,
+                "latitude": request.latitude,
+                "longitude": request.longitude
             }
+            for listener in listeners:
+                ws = notify_connections.get(listener.username)
+                if ws:
+                    try:
+                        await ws.send_text(json.dumps({
+                            "type": "match_found",
+                            "listeners": [current_user_data]
+                        }))
+                    except Exception:
+                        notify_connections.pop(listener.username, None)
+
+            return {"match": True, "listeners": listener_data}
 
         return {"match": False}
     finally:
@@ -237,6 +254,22 @@ async def get_active_users(token: str = Header(None)):
 # 3. Server broadcasts to ALL connected clients
 # 4. Each client receives messages in real-time
 # ─────────────────────────────────────────────────────────────────
+
+@app.websocket("/ws/notify")
+async def notify_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    username = None
+    try:
+        while True:
+            data = await websocket.receive_text()
+            msg = json.loads(data)
+            if msg.get("type") == "register":
+                username = msg.get("username")
+                notify_connections[username] = websocket
+    except Exception:
+        if username:
+            notify_connections.pop(username, None)
+
 
 @app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket):
