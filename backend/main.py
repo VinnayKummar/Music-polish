@@ -114,7 +114,7 @@ async def login(request: LoginRequest):
 # ─── Log song + find match ───────────────────────────────
 
 @app.post("/log")
-async def log_data(request: LogRequest, token: str = Header(None), http_request: Request = None):
+async def log_data(request: LogRequest, http_request: Request, token: str = Header(None)):
     username = verify_jwt_token(token)
     if not username:
         return {"error": "Invalid or missing token"}
@@ -125,9 +125,7 @@ async def log_data(request: LogRequest, token: str = Header(None), http_request:
         city_str = f"{request.latitude},{request.longitude}"  # will be resolved on frontend
     else:
         try:
-            ip = ""
-            if http_request:
-                ip = http_request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or http_request.client.host
+            ip = http_request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or http_request.client.host
             async with httpx.AsyncClient(timeout=5) as client:
                 res  = await client.get(f"https://ipwho.is/{ip}")
                 data = res.json()
