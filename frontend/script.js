@@ -275,7 +275,7 @@ async function showListenersList(listeners, matchEl) {
     const cityResults = [];
 
     for (const listener of others) {
-        const city     = listener.city ? `📍 ${listener.city}` : await getCityName(listener.latitude, listener.longitude);
+        const city     = listener.city ? `📍 ${listener.city}` : "📍 Location unknown";
         cityResults.push({ listener, city });
         const initials = listener.username.slice(0, 2).toUpperCase();
         const div      = document.createElement("div");
