@@ -114,10 +114,29 @@ async def login(request: LoginRequest):
 # ─── Log song + find match ───────────────────────────────
 
 @app.post("/log")
-async def log_data(request: LogRequest, token: str = Header(None)):
+async def log_data(request: LogRequest, token: str = Header(None), http_request: Request = None):
     username = verify_jwt_token(token)
     if not username:
         return {"error": "Invalid or missing token"}
+
+    # Resolve city from GPS coords or fall back to IP geolocation
+    city_str = ""
+    if request.latitude and request.longitude and request.latitude != 0 and request.longitude != 0:
+        city_str = f"{request.latitude},{request.longitude}"  # will be resolved on frontend
+    else:
+        try:
+            ip = ""
+            if http_request:
+                ip = http_request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or http_request.client.host
+            async with httpx.AsyncClient(timeout=5) as client:
+                res  = await client.get(f"https://ipwho.is/{ip}")
+                data = res.json()
+                if data.get("success"):
+                    c = data.get("city", "")
+                    cc = data.get("country_code", "")
+                    city_str = f"{c}, {cc}" if c and cc else (c or cc)
+        except Exception:
+            pass
 
     session = Session()
     try:
@@ -128,13 +147,16 @@ async def log_data(request: LogRequest, token: str = Header(None)):
             user.latitude    = request.latitude
             user.longitude   = request.longitude
             user.last_active = datetime.utcnow()
+            if city_str:
+                user.city = city_str
         else:
             user = User(
                 username=username,
                 song=request.song,
                 latitude=request.latitude,
                 longitude=request.longitude,
-                last_active=datetime.utcnow()
+                last_active=datetime.utcnow(),
+                city=city_str
             )
             session.add(user)
         session.commit()
@@ -153,7 +175,8 @@ async def log_data(request: LogRequest, token: str = Header(None)):
                 {
                     "username": listener.username,
                     "latitude": listener.latitude,
-                    "longitude": listener.longitude
+                    "longitude": listener.longitude,
+                    "city": getattr(listener, "city", "") or ""
                 }
                 for listener in listeners
             ]
@@ -162,7 +185,8 @@ async def log_data(request: LogRequest, token: str = Header(None)):
             current_user_data = {
                 "username": username,
                 "latitude": request.latitude,
-                "longitude": request.longitude
+                "longitude": request.longitude,
+                "city": city_str
             }
             for listener in listeners:
                 ws = notify_connections.get(listener.username)

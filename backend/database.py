@@ -14,6 +14,7 @@ class User(Base):
     latitude      = Column(Float, default=0)
     longitude     = Column(Float, default=0)
     last_active   = Column(DateTime, default=datetime.utcnow)
+    city          = Column(String, default="")
 
 
 class Message(Base):
