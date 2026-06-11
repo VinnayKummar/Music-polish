@@ -29,4 +29,13 @@ class Message(Base):
 
 engine = create_engine('sqlite:///polish.db')
 Base.metadata.create_all(engine)
+
+# Add city column if it doesn't exist (for existing DBs)
+with engine.connect() as conn:
+    try:
+        conn.execute(__import__('sqlalchemy').text("ALTER TABLE users ADD COLUMN city VARCHAR DEFAULT ''"))
+        conn.commit()
+    except Exception:
+        pass
+
 Session = sessionmaker(bind=engine)
